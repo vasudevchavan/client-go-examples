@@ -3,6 +3,7 @@ package watchers
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/vasudevchavan/client-go-examples/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -10,19 +11,21 @@ import (
 	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/kubernetes"
+
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 func WatchPodUsingWatcher(clientset *kubernetes.Clientset, namespace string) {
 	pods := clientset.CoreV1().Pods(namespace)
 
-	watch, err := pods.Watch(context.Background(), metav1.ListOptions{})
+	podWatch, err := pods.Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Failed to watch pods: %v", err)
 		return
 	}
-	defer watch.Stop()
+	defer podWatch.Stop()
 
-	for event := range watch.ResultChan() {
+	for event := range podWatch.ResultChan() {
 		klog.Info("Event type:", event.Type)
 		pod, ok := event.Object.(*v1.Pod)
 		if !ok {
@@ -39,16 +42,16 @@ func WatchPodUsingWatcher(clientset *kubernetes.Clientset, namespace string) {
 
 func WatchFilteredPodUsingWatcher(clientset *kubernetes.Clientset, namespace string, labels string) {
 	pods := clientset.CoreV1().Pods(namespace)
-	watch, err := pods.Watch(context.Background(), metav1.ListOptions{
+	podsWatch, err := pods.Watch(context.Background(), metav1.ListOptions{
 		LabelSelector: labels,
 	})
 	if err != nil {
 		klog.Errorf("Failed to watch filtered pods: %v", err)
 		return
 	}
-	defer watch.Stop()
+	defer podsWatch.Stop()
 
-	for event := range watch.ResultChan() {
+	for event := range podsWatch.ResultChan() {
 		klog.Info("Event type:", event.Type)
 		podObj, ok := event.Object.(*v1.Pod)
 		if !ok {
@@ -66,5 +69,87 @@ func WatchFilteredPodUsingWatcher(clientset *kubernetes.Clientset, namespace str
 			podObj.Name,
 			event.Type,
 			modifiers)
+	}
+}
+
+func WatchImageInPodUsingWatcher(clientset *kubernetes.Clientset, namespace string) {
+	pods := clientset.CoreV1().Pods(namespace)
+
+	podsWatch, err := pods.Watch(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		klog.Errorf("Failed to watch pods: %v", err)
+		return
+	}
+	defer podsWatch.Stop()
+
+	for event := range podsWatch.ResultChan() {
+		klog.Info("Event type:", event.Type)
+		pod, ok := event.Object.(*v1.Pod)
+		if !ok {
+			klog.Error("Failed to cast to Pod")
+			continue
+		}
+
+		if event.Type == watch.Added || event.Type == watch.Modified {
+			deletePod := false
+			if !(len(pod.OwnerReferences) > 0) {
+				for _, container := range pod.Spec.Containers {
+					getImage := container.Image
+					if !strings.Contains(getImage, ":") || strings.HasSuffix(getImage, ":latest") {
+						deletePod = true
+					}
+				}
+				if deletePod {
+					err := clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+					if err != nil {
+						klog.Warning("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+						klog.Errorf("Failed to delete pod %s: %v", pod.Name, err)
+						klog.Warning("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+					} else {
+						klog.Warning("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+						klog.Infof("Pod %s deleted successfully", pod.Name)
+						klog.Warning("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+					}
+				}
+			}
+		}
+
+		modifiers := utils.GetManagers(pod.ManagedFields)
+		klog.Infof("pod:%s has been %s by %s",
+			pod.Name,
+			event.Type,
+			modifiers)
+	}
+}
+
+func BackupPodJson(clientset *kubernetes.Clientset, namespace string) {
+	bPod := clientset.CoreV1().Pods(namespace)
+
+	podWatcher, err := bPod.Watch(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		klog.Errorf("Unable to list pods %w", err)
+	}
+	defer podWatcher.Stop()
+
+	backupRoot := "/Users/vasudevchavan/Mac-local/"
+	klog.Info("Pod backup watcher started...")
+
+	for event := range podWatcher.ResultChan() {
+		if event.Type != watch.Added {
+			continue
+		}
+		pod, ok := event.Object.(*v1.Pod)
+		if !ok {
+			klog.Errorf("failed to parse pod object %w", err)
+		}
+		latestPod, err := clientset.CoreV1().Pods(pod.Namespace).Get(context.Background(),
+			pod.Name,
+			metav1.GetOptions{})
+
+		if err != nil {
+			klog.Errorf("Failed to GET pod %s/%s for backup: %v", pod.Namespace, pod.Name, err)
+			continue
+		}
+		utils.SavePodJSON(latestPod, backupRoot)
 	}
 }

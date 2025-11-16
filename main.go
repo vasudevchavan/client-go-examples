@@ -19,6 +19,7 @@ func main() {
 
 	klog.InitFlags(nil)
 	flag.Set("logtostderr", "true")
+	flag.Set("skip_headers", "false")
 	flag.Parse()
 	defer klog.Flush()
 
@@ -44,7 +45,8 @@ func main() {
 		if *labels != "" {
 			watchers.WatchFilteredPodUsingWatcher(clientset, *namespace, *labels)
 		} else {
-			watchers.WatchPodUsingWatcher(clientset, *namespace)
+			// watchers.WatchPodUsingWatcher(clientset, *namespace)
+			watchers.BackupPodJson(clientset, *namespace)
 		}
 	case "deployments":
 		if *labels != "" {
@@ -66,6 +68,17 @@ func main() {
 		}
 	default:
 		fmt.Printf("Unsupported resource: %s\n", *resource)
+		if *labels != "" {
+			watchers.WatchFilteredPodUsingWatcher(clientset, *namespace, *labels)
+		} else {
+			watchers.WatchPodUsingWatcher(clientset, *namespace)
+		}
 		os.Exit(1)
 	}
 }
+
+// Feature Which will delete pods without Tag or latest
+// watchers.WatchImageInPodUsingWatcher(clientset, *namespace)
+
+// Backup Pod spec to location
+// watchers.BackupPodJson(client,*namespace)
