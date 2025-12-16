@@ -11,10 +11,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func WatchSecretsUsingWatcher(clientset *kubernetes.Clientset, namespace string) {
+func WatchSecretsUsingWatcher(ctx context.Context, clientset *kubernetes.Clientset, namespace string) {
 	sec := clientset.CoreV1().Secrets(namespace)
 
-	watch, err := sec.Watch(context.Background(), metav1.ListOptions{})
+	watch, err := sec.Watch(ctx, metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Failed to watch secrets: %v", err)
 		return
@@ -22,7 +22,7 @@ func WatchSecretsUsingWatcher(clientset *kubernetes.Clientset, namespace string)
 	defer watch.Stop()
 
 	for event := range watch.ResultChan() {
-		klog.Info("Event type:", event.Type)
+		// klog.Info("Event type:", event.Type)
 		secret, ok := event.Object.(*v1.Secret)
 		if !ok {
 			klog.Error("Failed to cast to Secret")
@@ -33,10 +33,10 @@ func WatchSecretsUsingWatcher(clientset *kubernetes.Clientset, namespace string)
 	}
 }
 
-func WatchFilteredSecretsUsingWatcher(clientset *kubernetes.Clientset, namespace string, labels string) {
+func WatchFilteredSecretsUsingWatcher(ctx context.Context, clientset *kubernetes.Clientset, namespace string, labels string) {
 	sec := clientset.CoreV1().Secrets(namespace)
 
-	watch, err := sec.Watch(context.Background(), metav1.ListOptions{
+	watch, err := sec.Watch(ctx, metav1.ListOptions{
 		LabelSelector: labels,
 	})
 	if err != nil {
@@ -46,7 +46,7 @@ func WatchFilteredSecretsUsingWatcher(clientset *kubernetes.Clientset, namespace
 	defer watch.Stop()
 
 	for event := range watch.ResultChan() {
-		klog.Info("Event type:", event.Type)
+		// klog.Info("Event type:", event.Type)
 		secret, ok := event.Object.(*v1.Secret)
 		if !ok {
 			klog.Error("Failed to cast to Secret")

@@ -11,10 +11,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func WatchDepUsingWatcher(clientset *kubernetes.Clientset, namespace string) {
+func WatchDepUsingWatcher(ctx context.Context, clientset *kubernetes.Clientset, namespace string) {
 	deployment := clientset.AppsV1().Deployments(namespace)
 
-	watch, err := deployment.Watch(context.Background(), metav1.ListOptions{})
+	watch, err := deployment.Watch(ctx, metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Failed to start watch on Deployments: %v", err)
 		return
@@ -22,22 +22,28 @@ func WatchDepUsingWatcher(clientset *kubernetes.Clientset, namespace string) {
 	defer watch.Stop()
 
 	for event := range watch.ResultChan() {
-		klog.Info("Event type:", event.Type)
-		dep, ok := event.Object.(*appsv1.Deployment)
-		if !ok {
-			klog.Info("Failed to cast to Deployment")
-			continue
+		select {
+		case <-ctx.Done():
+			klog.Info("Context cancelled, stopping watcher")
+			return
+		default:
+			// klog.Info("Event type:", event.Type)
+			dep, ok := event.Object.(*appsv1.Deployment)
+			if !ok {
+				klog.Info("Failed to cast to Deployment")
+				continue
+			}
+			modifiers := utils.GetManagers(dep.ManagedFields)
+			klog.Infof("Namespace:%s | Deployment:%s | Event:%s | Owner:%s",
+				dep.Namespace, dep.Name, event.Type, modifiers)
 		}
-		modifiers := utils.GetManagers(dep.ManagedFields)
-		klog.Infof("Namespace:%s | Deployment:%s | Event:%s | Owner:%s",
-			dep.Namespace, dep.Name, event.Type, modifiers)
 	}
 }
 
-func WatchFilteredDepUsingWatcher(clientset *kubernetes.Clientset, namespace string, labels string) {
+func WatchFilteredDepUsingWatcher(ctx context.Context, clientset *kubernetes.Clientset, namespace string, labels string) {
 	dep := clientset.AppsV1().Deployments(namespace)
 
-	watch, err := dep.Watch(context.Background(), metav1.ListOptions{
+	watch, err := dep.Watch(ctx, metav1.ListOptions{
 		LabelSelector: labels,
 	})
 	if err != nil {
@@ -47,20 +53,26 @@ func WatchFilteredDepUsingWatcher(clientset *kubernetes.Clientset, namespace str
 	defer watch.Stop()
 
 	for event := range watch.ResultChan() {
-		klog.Info("Event type:", event.Type)
-		dep, ok := event.Object.(*appsv1.Deployment)
-		if !ok {
-			klog.Info("Failed to cast to Deployment")
-			continue
+		select {
+		case <-ctx.Done():
+			klog.Info("Context cancelled, stopping watcher")
+			return
+		default:
+			// klog.Info("Event type:", event.Type)
+			dep, ok := event.Object.(*appsv1.Deployment)
+			if !ok {
+				klog.Info("Failed to cast to Deployment")
+				continue
+			}
+			modifiers := utils.GetManagers(dep.ManagedFields)
+			labelsJson, err := json.Marshal(dep.GetLabels())
+			if err != nil {
+				klog.Errorf("Failed to marshal labels: %v", err)
+				continue
+			}
+			klog.Infof("Labels: %s", string(labelsJson))
+			klog.Infof("Namespace:%s | Deployment:%s | Event:%s | Owner:%s",
+				dep.Namespace, dep.Name, event.Type, modifiers)
 		}
-		modifiers := utils.GetManagers(dep.ManagedFields)
-		labelsJson, err := json.Marshal(dep.GetLabels())
-		if err != nil {
-			klog.Errorf("Failed to marshal labels: %v", err)
-			continue
-		}
-		klog.Infof("Labels: %s", string(labelsJson))
-		klog.Infof("Namespace:%s | Deployment:%s | Event:%s | Owner:%s",
-			dep.Namespace, dep.Name, event.Type, modifiers)
 	}
 }

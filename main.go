@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/vasudevchavan/client-go-examples/pkg/cmd/watchers"
 	"github.com/vasudevchavan/client-go-examples/pkg/kubeconfig"
@@ -15,9 +18,9 @@ func main() {
 		resource          = flag.String("resource", "", "Resource to watch (pods, deployments, configmaps, secrets)")
 		namespace         = flag.String("namespace", "", "Namespace to watch (empty for all namespaces)")
 		labels            = flag.String("labels", "", "Label selector (e.g., run=test)")
-		deleteBadImagePod = flag.Bool("deletePods", false, "Delete pod containing images without & latest tag")
-		listBadImagePod   = flag.Bool("listbadimagepod", false, "List pod containing images without & latest tag")
-		backupPod         = flag.Bool("backuppod", false, "List pod containing images without & latest tag")
+		deleteBadImagePod = flag.Bool("delete-pods", false, "Delete pod containing images without & latest tag")
+		listBadImagePod   = flag.Bool("list-bad-image-pod", false, "List pod containing images without & latest tag")
+		backupPod         = flag.Bool("backup-pod", false, "Backup pod specs to JSON files")
 	)
 
 	klog.InitFlags(nil)
@@ -41,49 +44,52 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	fmt.Printf("Watching %s in namespace '%s' with labels '%s'\n", *resource, *namespace, *labels)
 
 	switch *resource {
 	case "pods":
 		fmt.Println("Calling POD")
 		if *labels != "" {
-			watchers.WatchFilteredPodUsingWatcher(clientset, *namespace, *labels)
+			watchers.WatchFilteredPodUsingWatcher(ctx, clientset, *namespace, *labels)
 		} else {
-			watchers.WatchPodUsingWatcher(clientset, *namespace)
+			watchers.WatchPodUsingWatcher(ctx, clientset, *namespace)
 		}
 	case "deployments":
 		fmt.Println("Calling DEPLOYMENT")
 		if *labels != "" {
-			watchers.WatchFilteredDepUsingWatcher(clientset, *namespace, *labels)
+			watchers.WatchFilteredDepUsingWatcher(ctx, clientset, *namespace, *labels)
 		} else {
-			watchers.WatchDepUsingWatcher(clientset, *namespace)
+			watchers.WatchDepUsingWatcher(ctx, clientset, *namespace)
 		}
 	case "configmaps":
 		fmt.Println("Calling CM")
 		if *labels != "" {
-			watchers.WatchFilteredCMUsingWatcher(clientset, *namespace, *labels)
+			watchers.WatchFilteredCMUsingWatcher(ctx, clientset, *namespace, *labels)
 		} else {
-			watchers.WatchCMUsingWatcher(clientset, *namespace)
+			watchers.WatchCMUsingWatcher(ctx, clientset, *namespace)
 		}
 	case "secrets":
 		fmt.Println("Calling SECRETS")
 		if *labels != "" {
-			watchers.WatchFilteredSecretsUsingWatcher(clientset, *namespace, *labels)
+			watchers.WatchFilteredSecretsUsingWatcher(ctx, clientset, *namespace, *labels)
 		} else {
-			watchers.WatchSecretsUsingWatcher(clientset, *namespace)
+			watchers.WatchSecretsUsingWatcher(ctx, clientset, *namespace)
 		}
 	}
 
 	switch {
 	case *deleteBadImagePod:
 		fmt.Println("Calling delete Bad pod")
-		watchers.DeleteBadImagePodUsingWatcher(clientset, *namespace)
+		watchers.DeleteBadImagePodUsingWatcher(ctx, clientset, *namespace)
 	case *listBadImagePod:
 		fmt.Println("Calling list Bad pod")
-		watchers.WatchBadImagePodUsingWatcher(clientset, *namespace)
+		watchers.WatchBadImagePodUsingWatcher(ctx, clientset, *namespace)
 	case *backupPod:
 		fmt.Println("Calling backup Bad pod")
-		watchers.BackupNewPodJson(clientset, *namespace)
+		watchers.BackupNewPodJson(ctx, clientset, *namespace)
 	}
 }
 

@@ -29,8 +29,8 @@ func LoadKubeConfig() (*rest.Config, *kubernetes.Clientset, error) {
 	if err != nil {
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			klog.Error("failed to building kubeconfig:%w", err)
-			return config, nil, fmt.Errorf("failed to building kubeconfig: %w", err)
+			klog.Errorf("failed to building kubeconfig:%v", err)
+			return config, nil, fmt.Errorf("failed to building kubeconfig: %v", err)
 
 		}
 	}
