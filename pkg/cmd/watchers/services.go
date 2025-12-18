@@ -11,6 +11,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// var backoffTime = 1 * time.Second
+
 func WatchServicesUsingWatcher(ctx context.Context, clientset *kubernetes.Clientset, namespace string) {
 	svc := clientset.CoreV1().Services(namespace)
 

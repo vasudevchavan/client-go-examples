@@ -52,32 +52,16 @@ func main() {
 	switch *resource {
 	case "pods":
 		fmt.Println("Calling POD")
-		if *labels != "" {
-			watchers.WatchFilteredPodUsingWatcher(ctx, clientset, *namespace, *labels)
-		} else {
-			watchers.WatchPodUsingWatcher(ctx, clientset, *namespace)
-		}
+		watchers.WatchFilteredPodUsingWatcher(ctx, clientset, *namespace, *labels)
 	case "deployments":
 		fmt.Println("Calling DEPLOYMENT")
-		if *labels != "" {
-			watchers.WatchFilteredDepUsingWatcher(ctx, clientset, *namespace, *labels)
-		} else {
-			watchers.WatchDepUsingWatcher(ctx, clientset, *namespace)
-		}
+		watchers.WatchFilteredDepUsingWatcher(ctx, clientset, *namespace, *labels)
 	case "configmaps":
 		fmt.Println("Calling CM")
-		if *labels != "" {
-			watchers.WatchFilteredCMUsingWatcher(ctx, clientset, *namespace, *labels)
-		} else {
-			watchers.WatchCMUsingWatcher(ctx, clientset, *namespace)
-		}
+		watchers.WatchFilteredCMUsingWatcher(ctx, clientset, *namespace, *labels)
 	case "secrets":
 		fmt.Println("Calling SECRETS")
-		if *labels != "" {
-			watchers.WatchFilteredSecretsUsingWatcher(ctx, clientset, *namespace, *labels)
-		} else {
-			watchers.WatchSecretsUsingWatcher(ctx, clientset, *namespace)
-		}
+		watchers.WatchFilteredSecretsUsingWatcher(ctx, clientset, *namespace, *labels)
 	}
 
 	switch {

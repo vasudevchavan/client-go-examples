@@ -73,6 +73,7 @@ func CanUserAccessResource(ctx context.Context, clientset *kubernetes.Clientset,
 	response, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, accessReview, metav1.CreateOptions{})
 	if err != nil {
 		klog.Errorf("ERROR: Failed to perform SelfSubjectAccessReview for '%s' %s in namespace %s: %v", verb, componentName, namespace, err)
+
 		return false
 	}
 	if response.Status.Allowed {
